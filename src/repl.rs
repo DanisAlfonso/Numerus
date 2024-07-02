@@ -79,6 +79,9 @@ pub fn start_repl() {
                     println!("Available commands:");
                     println!("  A = [1 2 3; 4 5 6; 7 8 9] - Define a matrix");
                     println!("  inv(A) - Compute the inverse of matrix A");
+                    println!("  det(A) - Compute the determinant of matrix A");
+                    println!("  solve(A, b) - Solve the system Ax = b");
+                    println!("  lu_decomposition(A) - Perform LU decomposition of matrix A");
                     println!("  A - Display the matrix A");
                     println!("  help - Show this help message");
                     println!("  exit - Exit the REPL");
@@ -108,6 +111,57 @@ pub fn start_repl() {
                         } else {
                             println!("Matrix {} is not square and cannot be inverted.", var);
                         }
+                    } else {
+                        println!("Matrix {} is not defined.", var);
+                    }
+                } else if trimmed_line.starts_with("det(") && trimmed_line.ends_with(")") {
+                    let var = &trimmed_line[4..trimmed_line.len() - 1];
+                    if let Some(matrix) = matrices.get(var) {
+                        let lu = LU::new(matrix);
+                        let det = lu.det();
+                        println!("Determinant of matrix {}: {:.6}", var, det);
+                    } else {
+                        println!("Matrix {} is not defined.", var);
+                    }
+                } else if trimmed_line.starts_with("solve(") && trimmed_line.ends_with(")") {
+                    if let Some((a_var, b_var)) =
+                        trimmed_line[6..trimmed_line.len() - 1].split_once(',')
+                    {
+                        let a_var = a_var.trim();
+                        let b_var = b_var.trim();
+                        if let Some(matrix) = matrices.get(a_var) {
+                            if let Some(vector) = matrices.get(b_var) {
+                                if vector.ncols() == 1 && vector.nrows() == matrix.nrows() {
+                                    let lu = LU::new(matrix);
+                                    let mut x = VectorDouble::new(vector.nrows());
+                                    let b = VectorDouble::from_slice(vector.data());
+                                    lu.solve(&b, &mut x);
+                                    println!("Solution vector x:");
+                                    for i in 0..x.size() {
+                                        println!("{:.6}", x[i]);
+                                    }
+                                } else {
+                                    println!("Vector {} is not a valid vector or does not match matrix {} dimensions.", b_var, a_var);
+                                }
+                            } else {
+                                println!("Vector {} is not defined.", b_var);
+                            }
+                        } else {
+                            println!("Matrix {} is not defined.", a_var);
+                        }
+                    } else {
+                        println!("Invalid solve command format.");
+                    }
+                } else if trimmed_line.starts_with("lu_decomposition(")
+                    && trimmed_line.ends_with(")")
+                {
+                    let var = &trimmed_line[17..trimmed_line.len() - 1];
+                    if let Some(matrix) = matrices.get(var) {
+                        let lu = LU::new(matrix);
+                        let mut lu_matrix = MatrixDouble::new(matrix.nrows(), matrix.ncols());
+                        lu.lu_decomposition(matrix, &mut lu_matrix);
+                        println!("LU decomposition of matrix {}:", var);
+                        print_matrix(&lu_matrix);
                     } else {
                         println!("Matrix {} is not defined.", var);
                     }

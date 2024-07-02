@@ -97,6 +97,10 @@ impl<T> Vector<T> {
     {
         self.data = vec![value; new_size];
     }
+
+    pub fn data(&self) -> &[T] {
+        &self.data
+    }
 }
 
 impl<T> std::ops::Index<usize> for Vector<T> {
@@ -179,6 +183,10 @@ where
     pub fn swap_elements(&mut self, row1: usize, col1: usize, row2: usize, col2: usize) {
         self.data
             .swap(row1 * self.cols + col1, row2 * self.cols + col2);
+    }
+
+    pub fn data(&self) -> &[T] {
+        &self.data
     }
 }
 

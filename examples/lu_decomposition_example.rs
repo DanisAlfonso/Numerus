@@ -5,7 +5,7 @@ use numerus::math_utilities::{MatrixDouble, VectorDouble};
 
 fn main() {
     // Example matrix A (3x3 matrix)
-    let a_data = vec![2.0, -1.0, 1.0, 3.0, 3.0, 9.0, 3.0, 3.0, 5.0];
+    let a_data = vec![1.0, 2.0, 3.0, 0.0, 1.0, 4.0, 5.0, 6.0, 0.0];
     let a = MatrixDouble::from_slice(3, 3, &a_data);
 
     // Example vector b
