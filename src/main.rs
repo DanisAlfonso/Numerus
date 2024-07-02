@@ -1,6 +1,10 @@
 // src/main.rs
 
+mod lu_decomposition;
+mod math_utilities;
+mod repl;
+
 fn main() {
-    println!("Run the examples to see the functionality.");
+    repl::start_repl();
 }
 
