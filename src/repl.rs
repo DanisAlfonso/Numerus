@@ -1,5 +1,6 @@
-use numerus::lu_decomposition::LU;
-use numerus::math_utilities::{MatrixDouble, VectorDouble};
+use crate::lu_decomposition::LU;
+use crate::math_utilities::{MatrixDouble, VectorDouble};
+use crate::matrix_operations::{add_matrices, multiply_matrices, subtract_matrices};
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
 use std::collections::HashMap;
@@ -54,6 +55,36 @@ fn print_matrix(matrix: &MatrixDouble) {
     }
 }
 
+fn handle_matrix_operations(
+    operation: char,
+    a_var: &str,
+    b_var: &str,
+    matrices: &HashMap<String, MatrixDouble>,
+) {
+    if let Some(a) = matrices.get(a_var) {
+        if let Some(b) = matrices.get(b_var) {
+            let result = match operation {
+                '+' => add_matrices(a, b),
+                '-' => subtract_matrices(a, b),
+                '*' => multiply_matrices(a, b),
+                _ => Err("Unknown operation"),
+            };
+
+            match result {
+                Ok(result) => {
+                    println!("Result of {} {} {}:", a_var, operation, b_var);
+                    print_matrix(&result);
+                }
+                Err(err) => println!("Error: {}", err),
+            }
+        } else {
+            println!("Matrix {} is not defined.", b_var);
+        }
+    } else {
+        println!("Matrix {} is not defined.", a_var);
+    }
+}
+
 pub fn start_repl() {
     let mut rl = Editor::<()>::new();
     if rl.load_history("history.txt").is_err() {
@@ -82,6 +113,12 @@ pub fn start_repl() {
                     println!("  det(A) - Compute the determinant of matrix A");
                     println!("  solve(A, b) - Solve the system Ax = b");
                     println!("  lu_decomposition(A) - Perform LU decomposition of matrix A");
+                    println!("  add(A, B) - Add matrices A and B");
+                    println!("  subtract(A, B) - Subtract matrix B from matrix A");
+                    println!("  multiply(A, B) - Multiply matrices A and B");
+                    println!("  A + B - Add matrices A and B");
+                    println!("  A - B - Subtract matrix B from matrix A");
+                    println!("  A * B - Multiply matrices A and B");
                     println!("  A - Display the matrix A");
                     println!("  help - Show this help message");
                     println!("  exit - Exit the REPL");
@@ -165,6 +202,12 @@ pub fn start_repl() {
                     } else {
                         println!("Matrix {} is not defined.", var);
                     }
+                } else if let Some((a_var, b_var)) = trimmed_line.split_once('+') {
+                    handle_matrix_operations('+', a_var.trim(), b_var.trim(), &matrices);
+                } else if let Some((a_var, b_var)) = trimmed_line.split_once('-') {
+                    handle_matrix_operations('-', a_var.trim(), b_var.trim(), &matrices);
+                } else if let Some((a_var, b_var)) = trimmed_line.split_once('*') {
+                    handle_matrix_operations('*', a_var.trim(), b_var.trim(), &matrices);
                 } else if matrices.contains_key(trimmed_line) {
                     if let Some(matrix) = matrices.get(trimmed_line) {
                         println!("Matrix {}:", trimmed_line);
