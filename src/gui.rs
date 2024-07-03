@@ -1,6 +1,8 @@
 use druid::theme;
-use druid::widget::{Button, Flex, Label, Scroll, TextBox};
-use druid::{AppLauncher, Color, Data, Env, Lens, UnitPoint, Widget, WidgetExt, WindowDesc};
+use druid::widget::{Button, Container, CrossAxisAlignment, Flex, Label, Scroll, TextBox};
+use druid::{
+    AppLauncher, Color, Data, Env, Event, EventCtx, Lens, UnitPoint, Widget, WidgetExt, WindowDesc,
+};
 use std::collections::HashMap;
 
 use crate::lu_decomposition::LU;
@@ -12,6 +14,7 @@ use meval::eval_str;
 pub struct CommandEntry {
     pub input: String,
     pub output: String,
+    pub index: usize,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -26,39 +29,50 @@ pub fn build_root_widget() -> impl Widget<AppState> {
     let input = TextBox::new()
         .with_placeholder("Enter command")
         .expand_width()
-        .lens(AppState::current_input);
+        .lens(AppState::current_input)
+        .controller(SubmitController);
 
     let button = Button::new("Run")
         .padding(10.0)
         .on_click(|_ctx, data: &mut AppState, _env| {
-            let output = handle_command(&data.current_input, &mut data.matrices);
-            data.history.push_back(CommandEntry {
-                input: data.current_input.clone(),
-                output,
-            });
-            data.current_input.clear();
+            submit_command(data);
         });
 
+    let input_row = Flex::row()
+        .with_flex_child(input, 1.0)
+        .with_spacer(10.0)
+        .with_child(button);
+
     let output_list = druid::widget::List::new(|| {
-        Flex::column()
-            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
-            .with_child(
-                Label::new(|item: &CommandEntry, _env: &Env| format!("In: {}", item.input))
-                    .with_text_size(14.0),
-            )
-            .with_child(
-                Label::new(|item: &CommandEntry, _env: &Env| format!("Out: {}", item.output))
+        Container::new(
+            Flex::column()
+                .cross_axis_alignment(CrossAxisAlignment::Start)
+                .with_child(
+                    Label::new(|item: &CommandEntry, _env: &Env| {
+                        format!("In[{}]: {}", item.index, item.input)
+                    })
+                    .with_text_size(14.0)
+                    .padding((0.0, 5.0)),
+                )
+                .with_child(
+                    Label::new(|item: &CommandEntry, _env: &Env| {
+                        format!("Out[{}]: {}", item.index, item.output)
+                    })
                     .with_text_color(Color::rgb8(0, 0, 255))
-                    .with_text_size(14.0),
-            )
-            .with_spacer(10.0)
-            .border(Color::grey(0.6), 1.0)
-            .padding(10.0)
+                    .with_text_size(14.0)
+                    .padding((0.0, 5.0)),
+                )
+                .with_spacer(10.0),
+        )
+        .background(Color::grey(0.2))
+        .border(Color::grey(0.6), 1.0)
+        .rounded(10.0)
+        .padding(10.0)
     })
     .lens(AppState::history)
     .padding(10.0);
 
-    let scroll = Scroll::new(output_list).vertical();
+    let scroll = Scroll::new(output_list).vertical().expand();
 
     Flex::column()
         .with_child(
@@ -67,16 +81,11 @@ pub fn build_root_widget() -> impl Widget<AppState> {
                 .padding(10.0),
         )
         .with_spacer(10.0)
-        .with_child(
-            Flex::row()
-                .with_flex_child(input, 1.0)
-                .with_spacer(10.0)
-                .with_child(button),
-        )
-        .with_spacer(10.0)
         .with_flex_child(scroll, 1.0)
+        .with_spacer(10.0)
+        .with_child(input_row)
         .padding(10.0)
-        .align_vertical(UnitPoint::CENTER)
+        .align_vertical(UnitPoint::TOP)
         .expand()
 }
 
@@ -101,7 +110,7 @@ pub fn main() {
         .expect("Failed to launch application");
 }
 
-pub fn handle_command(command: &str, matrices: &mut HashMap<String, MatrixDouble>) -> String {
+fn handle_command(command: &str, matrices: &mut HashMap<String, MatrixDouble>) -> String {
     let trimmed_command = command.trim();
 
     // Try to evaluate the expression first
@@ -153,7 +162,7 @@ pub fn handle_command(command: &str, matrices: &mut HashMap<String, MatrixDouble
         if let Some(matrix) = matrices.get(var) {
             let lu = LU::new(matrix);
             let det = lu.det();
-            return format!("Determinant of matrix {}: {:.6}", var, det);
+            return format!("Determinant of matrix {}: {}", var, det);
         } else {
             return format!("Matrix {} is not defined.", var);
         }
@@ -172,7 +181,7 @@ pub fn handle_command(command: &str, matrices: &mut HashMap<String, MatrixDouble
                         return format!(
                             "Solution vector x:\n{}",
                             (0..x.size())
-                                .map(|i| format!("{:.6}", x[i]))
+                                .map(|i| format!("{}", x[i]))
                                 .collect::<Vec<String>>()
                                 .join("\n")
                         );
@@ -216,7 +225,7 @@ pub fn handle_command(command: &str, matrices: &mut HashMap<String, MatrixDouble
     "Unknown command".to_string()
 }
 
-pub fn handle_matrix_operations(
+fn handle_matrix_operations(
     operation: char,
     a_var: &str,
     b_var: &str,
@@ -247,7 +256,7 @@ pub fn handle_matrix_operations(
     }
 }
 
-pub fn parse_matrix(input: &str) -> Result<MatrixDouble, &'static str> {
+fn parse_matrix(input: &str) -> Result<MatrixDouble, &'static str> {
     let rows: Vec<&str> = input.split(';').map(|s| s.trim()).collect();
     let mut data = Vec::new();
     let mut ncols = None;
@@ -274,7 +283,7 @@ pub fn parse_matrix(input: &str) -> Result<MatrixDouble, &'static str> {
     }
 }
 
-pub fn parse_vector(input: &str) -> Result<VectorDouble, &'static str> {
+fn parse_vector(input: &str) -> Result<VectorDouble, &'static str> {
     let cols: Vec<&str> = input.split_whitespace().collect();
     let mut data = Vec::new();
 
@@ -292,10 +301,42 @@ fn matrix_to_string(matrix: &MatrixDouble) -> String {
     let mut result = String::new();
     for i in 0..matrix.nrows() {
         for j in 0..matrix.ncols() {
-            result.push_str(&format!("{:.6} ", matrix[i][j]));
+            result.push_str(&format!("{:<10}    ", matrix[i][j]));
         }
         result.push('\n');
     }
     result
+}
+
+fn submit_command(data: &mut AppState) {
+    let output = handle_command(&data.current_input, &mut data.matrices);
+    let index = data.history.len() + 1;
+    data.history.push_back(CommandEntry {
+        input: data.current_input.clone(),
+        output,
+        index,
+    });
+    data.current_input.clear();
+}
+
+struct SubmitController;
+
+impl<W: Widget<AppState>> druid::widget::Controller<AppState, W> for SubmitController {
+    fn event(
+        &mut self,
+        child: &mut W,
+        ctx: &mut EventCtx,
+        event: &Event,
+        data: &mut AppState,
+        _env: &Env,
+    ) {
+        if let Event::KeyDown(key_event) = event {
+            if key_event.key == druid::keyboard_types::Key::Enter && key_event.mods.shift() {
+                submit_command(data);
+                ctx.request_update();
+            }
+        }
+        child.event(ctx, event, data, _env);
+    }
 }
 
