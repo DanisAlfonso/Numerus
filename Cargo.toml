@@ -8,5 +8,4 @@ num-traits = "0.2"
 rustyline = "9.0"
 clap = "4.0.0"
 meval = "0.2"
-druid = "0.7.0"
-
+druid = { version = "0.7", features = ["im"] }

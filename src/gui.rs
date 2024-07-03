@@ -1,5 +1,6 @@
-use druid::widget::{Button, Flex, Label, TextBox};
-use druid::{Data, Env, Lens, Widget, WidgetExt, WindowDesc};
+use druid::theme;
+use druid::widget::{Button, Flex, Label, Scroll, TextBox};
+use druid::{AppLauncher, Color, Data, Env, Lens, UnitPoint, Widget, WidgetExt, WindowDesc};
 use std::collections::HashMap;
 
 use crate::lu_decomposition::LU;
@@ -8,44 +9,96 @@ use crate::matrix_operations::{add_matrices, multiply_matrices, subtract_matrice
 use meval::eval_str;
 
 #[derive(Clone, Data, Lens)]
+pub struct CommandEntry {
+    pub input: String,
+    pub output: String,
+}
+
+#[derive(Clone, Data, Lens)]
 pub struct AppState {
     pub current_input: String,
     #[data(ignore)]
     pub matrices: HashMap<String, MatrixDouble>,
-    pub output: String,
+    pub history: druid::im::Vector<CommandEntry>,
 }
 
 pub fn build_root_widget() -> impl Widget<AppState> {
     let input = TextBox::new()
         .with_placeholder("Enter command")
+        .expand_width()
         .lens(AppState::current_input);
 
-    let button = Button::new("Run").on_click(|_ctx, data: &mut AppState, _env| {
-        let output = handle_command(&data.current_input, &mut data.matrices);
-        data.output = output;
-        data.current_input.clear();
-    });
+    let button = Button::new("Run")
+        .padding(10.0)
+        .on_click(|_ctx, data: &mut AppState, _env| {
+            let output = handle_command(&data.current_input, &mut data.matrices);
+            data.history.push_back(CommandEntry {
+                input: data.current_input.clone(),
+                output,
+            });
+            data.current_input.clear();
+        });
 
-    let output = Label::new(|data: &AppState, _env: &Env| data.output.clone());
+    let output_list = druid::widget::List::new(|| {
+        Flex::column()
+            .cross_axis_alignment(druid::widget::CrossAxisAlignment::Start)
+            .with_child(
+                Label::new(|item: &CommandEntry, _env: &Env| format!("In: {}", item.input))
+                    .with_text_size(14.0),
+            )
+            .with_child(
+                Label::new(|item: &CommandEntry, _env: &Env| format!("Out: {}", item.output))
+                    .with_text_color(Color::rgb8(0, 0, 255))
+                    .with_text_size(14.0),
+            )
+            .with_spacer(10.0)
+            .border(Color::grey(0.6), 1.0)
+            .padding(10.0)
+    })
+    .lens(AppState::history)
+    .padding(10.0);
+
+    let scroll = Scroll::new(output_list).vertical();
 
     Flex::column()
-        .with_child(Label::new("Numerus Interactive Notebook").with_text_size(30.0))
-        .with_spacer(20.0)
+        .with_child(
+            Label::new("Numerus Interactive Notebook")
+                .with_text_size(30.0)
+                .padding(10.0),
+        )
+        .with_spacer(10.0)
         .with_child(
             Flex::row()
-                .with_child(input)
+                .with_flex_child(input, 1.0)
                 .with_spacer(10.0)
                 .with_child(button),
         )
-        .with_spacer(20.0)
-        .with_child(output)
-        .center()
+        .with_spacer(10.0)
+        .with_flex_child(scroll, 1.0)
+        .padding(10.0)
+        .align_vertical(UnitPoint::CENTER)
+        .expand()
 }
 
 pub fn main_window() -> WindowDesc<AppState> {
     WindowDesc::new(build_root_widget)
         .title("Numerus")
-        .window_size((600.0, 400.0))
+        .window_size((800.0, 600.0))
+}
+
+pub fn main() {
+    let main_window = main_window();
+
+    let initial_state = AppState {
+        current_input: String::new(),
+        matrices: HashMap::new(),
+        history: druid::im::Vector::new(),
+    };
+
+    AppLauncher::with_window(main_window)
+        .use_simple_logger()
+        .launch(initial_state)
+        .expect("Failed to launch application");
 }
 
 pub fn handle_command(command: &str, matrices: &mut HashMap<String, MatrixDouble>) -> String {
