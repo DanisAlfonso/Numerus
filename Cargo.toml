@@ -6,7 +6,6 @@ edition = "2021"
 [dependencies]
 num-traits = "0.2"
 rustyline = "9.0"
-egui = "0.20"
-eframe = "0.20"
 clap = "4.0.0"
 meval = "0.2"
+iced = { version = "0.7", features = ["tokio", "iced_wgpu"] }
