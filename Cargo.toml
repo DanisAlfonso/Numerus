@@ -8,4 +8,5 @@ num-traits = "0.2"
 rustyline = "9.0"
 clap = "4.0.0"
 meval = "0.2"
-iced = { version = "0.7", features = ["tokio", "iced_wgpu"] }
+druid = "0.7.0"
+
